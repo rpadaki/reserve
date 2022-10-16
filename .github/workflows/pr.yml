@@ -1,0 +1,21 @@
+name: "Check PR"
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  rust-checks:
+    name: "Check Rust Code"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Formatting
+        run: cargo fmt --check
+      - name: Building
+        run: cargo build
+      - name: Testing
+        run: cargo test
