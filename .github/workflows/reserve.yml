@@ -1,0 +1,26 @@
+name: "Reserve at Slainte"
+on:
+  schedule:
+    # Every Thursday at 10:00 AM
+    - cron: "0 10 * * 4"
+  workflow_dispatch:
+
+jobs:
+  reserve:
+    name: "Make Reservation"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: "Install"
+        run: cargo install --git ${{github.repositoryUrl}}
+      - name: "Reserve"
+        run: |
+          reserve \
+            --name "${{secrets.RESERVATION_NAME}}" \
+            --guests "${{secrets.RESERVATION_GUESTS}}" \
+            --email "${{secrets.RESERVATION_EMAIL}}" \
+            --phone "${{secrets.RESERVATION_PHONE}}" \
+            --day "Wednesday" \
+            --time "7:30 pm"
