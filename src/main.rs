@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_aux::container_attributes::deserialize_struct_case_insensitive;
 use serde_json::{json, Value};
 use std::fmt::Debug;
+use wasm_bindgen::prelude::*;
 
 fn get_next_occurrence(
     today: &NaiveDate,
@@ -152,8 +153,9 @@ enum SpothopperRestaurants {
     Slainte = 0xBAE,
 }
 
+#[wasm_bindgen]
 #[derive(Parser)]
-struct Cli {
+pub struct Cli {
     #[clap(short, long)]
     name: String,
     #[clap(short, long, default_value = "2")]
@@ -170,6 +172,30 @@ struct Cli {
     instructions: Option<String>,
 }
 
+#[wasm_bindgen]
+impl Cli {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        name: String,
+        guests: u8,
+        email: String,
+        phone: String,
+        day: String,
+        time: String,
+        instructions: Option<String>,
+    ) -> Cli {
+        Cli {
+            name,
+            guests,
+            email,
+            phone,
+            day,
+            time,
+            instructions,
+        }
+    }
+}
+
 fn make_spothopper_request_url(restaurant: SpothopperRestaurants) -> String {
     format!(
         "https://www.spothopperapp.com/api/spots/{}/reservation_requests/add_from_tmt",
@@ -177,26 +203,38 @@ fn make_spothopper_request_url(restaurant: SpothopperRestaurants) -> String {
     )
 }
 
-fn main() -> Result<(), String> {
-    let args = Cli::parse();
+#[wasm_bindgen]
+pub fn make_reservation(args: &Cli) -> Result<(), String> {
     let body = create_body(&args)?;
-    let client = reqwest::blocking::Client::new();
-    let response = client
-        .post(&make_spothopper_request_url(SpothopperRestaurants::Slainte))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .json(&body)
-        .send()
-        .map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
+    let response = futures::executor::block_on(
+        client
+            .post(&make_spothopper_request_url(SpothopperRestaurants::Slainte))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .json(&body)
+            .send(),
+    )
+    .map_err(|e| format!("Error sending request: {}", e))?;
     if response.status().is_success() {
         println!("Successfully made reservation!");
         Ok(())
     } else {
         Err(format!(
             "Failed to make reservation: {}",
-            response.text().unwrap()
+            futures::executor::block_on(response.text())
+                .map_err(|e| format!("Error reading response: {}", e))?
         ))
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() -> Result<(), String> {
+    let args = Cli::parse();
+    make_reservation(&args)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {}
 
 #[cfg(test)]
 mod tests {
